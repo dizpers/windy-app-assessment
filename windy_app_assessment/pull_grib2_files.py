@@ -17,12 +17,20 @@ RESULT_DIR_PATH = Path(__file__).parent.absolute() / "result"
 ICON_D2_DIR_PATH = RESULT_DIR_PATH / "icon_d2"
 
 
-async def download_and_process_grib2_file(session: aiohttp.ClientSession, grib2_file_url: str) -> None:
+async def download_grib2_file(
+        session: aiohttp.ClientSession,
+        grib2_files_directory: str,
+        grib2_file_url: str
+) -> None:
     """
-    Download given GRIB2 file and process it. NOTE: at the moment we expect
-    bzip2 encoded files.
+    Download given GRIB2 files to temporary directory for further processing.
+
+    NOTES:
+    * at the moment we expect bzip2 encoded files;
+    * all the files would be saved to temporary directory
 
     :param session: aiohttp session
+    :param grib2_files_directory: temporary directory for GRIB2 files
     :param grib2_file_url: URL to (bzip2 compressed) GRIB2 file
     """
     async with session.get(grib2_file_url) as resp:
@@ -30,7 +38,7 @@ async def download_and_process_grib2_file(session: aiohttp.ClientSession, grib2_
         if resp.status == 200:
             file_name = grib2_file_url.split("/")[-1][:-4]
             # TODO (dmitry): consider in-memory files to reduce time spent on disk i/o operations
-            async with aiofiles.open("test.grib2", "wb") as decompressed_file:
+            async with aiofiles.open(Path(grib2_files_directory) / file_name, "wb") as decompressed_file:
                 decompressor = BZ2Decompressor()
                 async for data in resp.content.iter_any():
                     await decompressed_file.write(decompressor.decompress(data))
@@ -58,12 +66,14 @@ async def get_grib2_files_urls(session: aiohttp.ClientSession, grib2_files_direc
                    if node.get("href").endswith("grib2.bz2") and "regular-lat-lon" in node.get("href")
         ]
 
+
 async def async_main():
     async with aiohttp.ClientSession() as session:
-        await asyncio.gather(*([
-            download_and_process_grib2_file(session, grib2_file_url)
-            for grib2_file_url in await get_grib2_files_urls(session, GRIB2_FILES_DIRECTORY_URL)
-        ]))
+        async with aiofiles.tempfile.TemporaryDirectory() as grib2_files_directory:
+            await asyncio.gather(*([
+                download_grib2_file(session, grib2_files_directory, grib2_file_url)
+                for grib2_file_url in await get_grib2_files_urls(session, GRIB2_FILES_DIRECTORY_URL)
+            ]))
 
     print("All done")
 
