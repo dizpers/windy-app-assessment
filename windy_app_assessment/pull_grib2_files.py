@@ -26,11 +26,9 @@ async def download_and_process_grib2_file(session: aiohttp.ClientSession, grib2_
         # TODO (dmitry): retry in case of error? logging?
         if resp.status == 200:
             async with aiofiles.open("test.grib2", "wb") as decompressed_file:
-                async with aiofiles.open("original.grib2.bz2", "wb") as original_file:
-                    decompressor = BZ2Decompressor()
-                    async for data in resp.content.iter_any():
-                        await original_file.write(data)
-                        await decompressed_file.write(decompressor.decompress(data))
+                decompressor = BZ2Decompressor()
+                async for data in resp.content.iter_any():
+                    await decompressed_file.write(decompressor.decompress(data))
 
 
 async def get_grib2_files_urls(session: aiohttp.ClientSession, grib2_files_directory_url: str) -> List[str]:
