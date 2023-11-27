@@ -1,10 +1,12 @@
 import asyncio
+import struct
 import os
 import re
 from bz2 import BZ2Decompressor
 from typing import List
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import NamedTuple
 
 import aiorun
 import aiohttp
@@ -18,6 +20,19 @@ env.read_env()
 GRIB2_FILES_DIRECTORY_URL = env.str("GRIB2_FILES_DIRECTORY_URL")
 RESULT_DIR_PATH = Path(__file__).parent.parent.absolute() / "result"
 ICON_D2_DIR_PATH = RESULT_DIR_PATH / "icon_d2"
+
+WGF4_EMPTY_VALUE: float = -100500.00
+
+
+class WGF4Header(NamedTuple):
+
+    latitude_min: int
+    latitude_max: int
+    longitude_min: int
+    longitude_max: int
+    latitude_step: int
+    longitude_step: int
+    multiplier: int
 
 
 def get_wgf4_output_dir_name(grib2_file_path: Path) -> str:
@@ -43,8 +58,22 @@ async def process_grib2_files(grib2_files_directory_path: Path) -> None:
         # TODO (dmitry): if a directory exists, we might already have the data there, so ideally we shouldn't prcess
         # current GRIB2 file in this case
         # but here we'll just ignore that directory exists, the new WGF4 file would be created and stored in this dir
-        (ICON_D2_DIR_PATH / get_wgf4_output_dir_name(grib2_file_path)).mkdir(exist_ok=True)
+        wgf4_output_dir_path = ICON_D2_DIR_PATH / get_wgf4_output_dir_name(grib2_file_path)
+        wgf4_output_dir_path.mkdir(exist_ok=True)
         # prepare PRATE.wgf4 header
+        wgf4_header = WGF4Header(
+            26897555,
+            62188757,
+            -22515916,
+            50584964,
+            95640,
+            95640,
+            1000000
+        )
+        # TODO (dmitry): `PRATE.wgf4` should be a constant
+        async with aiofiles.open(wgf4_output_dir_path / "PRATE.wgf4", "wb") as wgf4_output:
+            await wgf4_output.write(struct.pack("7i f", *wgf4_header, WGF4_EMPTY_VALUE))
+
 
 
 async def download_grib2_file(
