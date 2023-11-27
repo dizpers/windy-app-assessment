@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import NamedTuple
 
 import aiorun
+import numpy as np
 import aiohttp
 import aiofiles
 import xarray
@@ -57,12 +58,15 @@ def get_wgf4_output_dir_name(grib2_file_path: Path) -> str:
 async def process_grib2_files(grib2_files_directory_path: Path) -> None:
     for grib2_file_path in sorted(grib2_files_directory_path.iterdir()):
         # create directory for current hour
+        #
         # TODO (dmitry): if a directory exists, we might already have the data there, so ideally we shouldn't prcess
         # current GRIB2 file in this case
         # but here we'll just ignore that directory exists, the new WGF4 file would be created and stored in this dir
         wgf4_output_dir_path = ICON_D2_DIR_PATH / get_wgf4_output_dir_name(grib2_file_path)
         wgf4_output_dir_path.mkdir(exist_ok=True)
+
         # prepare PRATE.wgf4 header
+        #
         ds = xr.open_dataset(grib2_file_path, engine="cfgrib")
         # TODO (dmitry): should we calculate multiplier based on the actual values of lat / long? I.e. if we have
         # numbers like `3.99`, `6.77`, `9.333`, then the multiplier should be 10 ** 3.
@@ -82,9 +86,22 @@ async def process_grib2_files(grib2_files_directory_path: Path) -> None:
             longitude_step=int((float(ds.longitude.max() - ds.longitude.min()) / len(ds.longitude)) * multiplier),
             multiplier=1000000
         )
+
+        # Prepare forecast data for WGF4 file
+        #
+        # NOTE: Taking forecast for 45th minute of an hour
+        forecast_data = ds.tp.to_numpy()[-1, :, :]
+        # TODO (dmitry): remove the forecast for past hour
+        # "no value" should be replaced with special number
+        forecast_data = np.nan_to_num(forecast_data, nan=WGF4_EMPTY_VALUE)
+        # flatten in row-major order
+        forecast_data = forecast_data.flatten()
+
+        # Write header and data to WGF4 file
+        #
         # TODO (dmitry): `PRATE.wgf4` should be a constant
         async with aiofiles.open(wgf4_output_dir_path / "PRATE.wgf4", "wb") as wgf4_output:
-            await wgf4_output.write(struct.pack("7i f", *wgf4_header, WGF4_EMPTY_VALUE))
+            await wgf4_output.write(struct.pack("7i f", *wgf4_header, WGF4_EMPTY_VALUE) + forecast_data.tobytes())
 
 
 
