@@ -11,8 +11,10 @@ from typing import NamedTuple
 import aiorun
 import aiohttp
 import aiofiles
+import xarray
 from bs4 import BeautifulSoup
 from environs import Env
+import xarray as xr
 
 env = Env()
 env.read_env()
@@ -61,14 +63,24 @@ async def process_grib2_files(grib2_files_directory_path: Path) -> None:
         wgf4_output_dir_path = ICON_D2_DIR_PATH / get_wgf4_output_dir_name(grib2_file_path)
         wgf4_output_dir_path.mkdir(exist_ok=True)
         # prepare PRATE.wgf4 header
+        ds = xr.open_dataset(grib2_file_path, engine="cfgrib")
+        # TODO (dmitry): should we calculate multiplier based on the actual values of lat / long? I.e. if we have
+        # numbers like `3.99`, `6.77`, `9.333`, then the multiplier should be 10 ** 3.
+        # But for noe we set specific value here
+        multiplier = 1000000
+        # TODO (dmitry): there's a problem with calculation of step
+        # let's say we have values like -3.9399999999999977, -3.9199999999999977, ...
+        # the step would be 0.019983539094650202
+        # if we use default multiplier 1000000, then -3939999 + 19983 = -3920016 (while it should be 3919999)
+        # so there's some problem with precision
         wgf4_header = WGF4Header(
-            26897555,
-            62188757,
-            -22515916,
-            50584964,
-            95640,
-            95640,
-            1000000
+            latitude_min=int(ds.latitude.min() * multiplier),
+            latitude_max=int(ds.latitude.max() * multiplier),
+            longitude_min=int(ds.longitude.min() * multiplier),
+            longitude_max=int(ds.longitude.max() * multiplier),
+            latitude_step=int((float(ds.latitude.max() - ds.latitude.min()) / len(ds.latitude)) * multiplier),
+            longitude_step=int((float(ds.longitude.max() - ds.longitude.min()) / len(ds.longitude)) * multiplier),
+            multiplier=1000000
         )
         # TODO (dmitry): `PRATE.wgf4` should be a constant
         async with aiofiles.open(wgf4_output_dir_path / "PRATE.wgf4", "wb") as wgf4_output:
