@@ -1,7 +1,10 @@
 import asyncio
+import os
+import re
 from bz2 import BZ2Decompressor
 from typing import List
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import aiorun
 import aiohttp
@@ -13,8 +16,21 @@ env = Env()
 env.read_env()
 
 GRIB2_FILES_DIRECTORY_URL = env.str("GRIB2_FILES_DIRECTORY_URL")
-RESULT_DIR_PATH = Path(__file__).parent.absolute() / "result"
+RESULT_DIR_PATH = Path(__file__).parent.parent.absolute() / "result"
 ICON_D2_DIR_PATH = RESULT_DIR_PATH / "icon_d2"
+
+
+def get_wgf4_output_dir(grib2_file_path: str) -> str:
+    year, month, day, hour, offset = map(int, re.match(r".*(\d{4})(\d{2})(\d{2})(\d{2})_(\d{3})_2d", grib2_file_path).groups())
+    return (datetime(year, month, day, hour) + timedelta(hours=offset)).strftime("%d.%m.%Y_%H:%M_%s")
+
+
+
+async def process_grib2_files(grib2_files_directory: str) -> None:
+    for grib2_file_path in sorted(Path(grib2_files_directory).iterdir()):
+        # create directory for current hour
+        os.mkdir(ICON_D2_DIR_PATH / get_wgf4_output_dir(str(grib2_file_path)))
+        # prepare PRATE.wgf4 header
 
 
 async def download_grib2_file(
@@ -74,6 +90,7 @@ async def async_main():
                 download_grib2_file(session, grib2_files_directory, grib2_file_url)
                 for grib2_file_url in await get_grib2_files_urls(session, GRIB2_FILES_DIRECTORY_URL)
             ]))
+            await process_grib2_files(grib2_files_directory)
 
     print("All done")
 

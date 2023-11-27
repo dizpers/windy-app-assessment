@@ -1,2 +1,12 @@
+# IDE
 .idea
+
+# Configuration files
 .env
+
+# Results
+result/icon_d2/*
+!.gitkeep
+
+# Stuff
+.DS_Store
