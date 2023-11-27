@@ -1,8 +1,10 @@
 import asyncio
+from bz2 import BZ2Decompressor
 from typing import List
 
 import aiorun
 import aiohttp
+import aiofiles
 from bs4 import BeautifulSoup
 from environs import Env
 
@@ -23,7 +25,12 @@ async def download_and_process_grib2_file(session: aiohttp.ClientSession, grib2_
     async with session.get(grib2_file_url) as resp:
         # TODO (dmitry): retry in case of error? logging?
         if resp.status == 200:
-            pass
+            async with aiofiles.open("test.grib2", "wb") as decompressed_file:
+                async with aiofiles.open("original.grib2.bz2", "wb") as original_file:
+                    decompressor = BZ2Decompressor()
+                    async for data in resp.content.iter_any():
+                        await original_file.write(data)
+                        await decompressed_file.write(decompressor.decompress(data))
 
 
 async def get_grib2_files_urls(session: aiohttp.ClientSession, grib2_files_directory_url: str) -> List[str]:
@@ -40,7 +47,7 @@ async def get_grib2_files_urls(session: aiohttp.ClientSession, grib2_files_direc
         return [
             grib2_files_directory_url + "/" + node.get("href")
             for node in BeautifulSoup(page_content, "html.parser").find_all("a") if node.get("href").endswith("grib2.bz2")
-        ]
+        ][:1]
 
 async def async_main():
     async with aiohttp.ClientSession() as session:
@@ -48,6 +55,8 @@ async def async_main():
             download_and_process_grib2_file(session, grib2_file_url)
             for grib2_file_url in await get_grib2_files_urls(session, GRIB2_FILES_DIRECTORY_URL)
         ]))
+
+    print("all done")
 
 
 def main() -> None:

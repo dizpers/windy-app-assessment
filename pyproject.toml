@@ -16,6 +16,7 @@ environs = "^9.5.0"
 bs4 = "^0.0.1"
 aiorun = "^2023.7.2"
 aiohttp = "^3.9.0"
+aiofiles = "^23.2.1"
 
 
 [build-system]
