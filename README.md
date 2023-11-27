@@ -9,6 +9,11 @@ For the very first local run you could copy-paste the example configuration:
 ```bash
 cp windy_app_assessment/.env.TEMPLATE windy_app_assessment/.env
 ```
+## Prepare
+
+1. Install `eccodes` package (MacOS) or `libeccodes-dev` package (Linux)
+2. Install dependencies `poetry install`
+3. Activate environment `poetry shell`
 
 ## Run
 
@@ -16,7 +21,7 @@ cp windy_app_assessment/.env.TEMPLATE windy_app_assessment/.env
 python windy_app_assessment/pull_grib2_files.py
 ```
 
-## Improvements
+## Improve
 
 1. Use `uvloop` for better performance
 2. Dockerize and make it ready for K8s
@@ -26,3 +31,4 @@ python windy_app_assessment/pull_grib2_files.py
 6. Add error handling
 7. Add logging
 8. Add tests
+9. Address other TODOs in the code
