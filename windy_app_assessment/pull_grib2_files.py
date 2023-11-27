@@ -1,20 +1,17 @@
 import asyncio
-import struct
-import os
-import re
 from bz2 import BZ2Decompressor
-from typing import List
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import NamedTuple
+from pathlib import Path
+import re
+import struct
+from typing import List, NamedTuple, Optional
 
-import aiorun
-import numpy as np
-import aiohttp
 import aiofiles
-import xarray
+import aiohttp
+import aiorun
 from bs4 import BeautifulSoup
 from environs import Env
+import numpy as np
 import xarray as xr
 
 env = Env()
@@ -56,6 +53,13 @@ def get_wgf4_output_dir_name(grib2_file_path: Path) -> str:
 
 
 async def process_grib2_files(grib2_files_directory_path: Path) -> None:
+    """
+    Process all the GRIB2 files in the directory. All the files would be converted into WGF4 files.
+
+    :param grib2_files_directory_path: Path object representing a path to directory with GRIB2 files
+    """
+    past_hour_forecast_data: Optional[np.ndarray] = None
+
     for grib2_file_path in sorted(grib2_files_directory_path.iterdir()):
         # create directory for current hour
         #
@@ -90,8 +94,18 @@ async def process_grib2_files(grib2_files_directory_path: Path) -> None:
         # Prepare forecast data for WGF4 file
         #
         # NOTE: Taking forecast for 45th minute of an hour
-        forecast_data = ds.tp.to_numpy()[-1, :, :]
-        # TODO (dmitry): remove the forecast for past hour
+        try:
+            forecast_data = ds.tp.to_numpy()[-1, :, :]
+        except IndexError:
+            # TODO (dmitry): this is the special case I found for 48h offset
+            # it'd better to investigate why is it happening
+            if len(ds.tp.to_numpy().shape) == 2 and "048" in str(grib2_file_path):
+                forecast_data = ds.tp.to_numpy()
+            else:
+                raise
+        if past_hour_forecast_data is not None:
+            forecast_data = forecast_data - past_hour_forecast_data
+        past_hour_forecast_data = forecast_data
         # "no value" should be replaced with special number
         forecast_data = np.nan_to_num(forecast_data, nan=WGF4_EMPTY_VALUE)
         # flatten in row-major order
