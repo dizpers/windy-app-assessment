@@ -22,6 +22,7 @@ python windy_app_assessment/pull_grib2_files.py
 2. Dockerize and make it ready for K8s
 3. See if it'd be better to use in-memory files (less time for disk i/o operations)
 4. Currently, it expects the list of `.grib2.bz2` files on the "directory" page. Other data providers might follow another way. So we should make this script more flexible to support other rules of extraction.
-5. Add error handling
-6. Add logging
-7. Add tests
+5. There's a chance that we already did all the calculations, so no need to process some files
+6. Add error handling
+7. Add logging
+8. Add tests

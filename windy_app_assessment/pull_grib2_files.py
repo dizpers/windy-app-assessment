@@ -29,7 +29,10 @@ def get_wgf4_output_dir(grib2_file_path: str) -> str:
 async def process_grib2_files(grib2_files_directory: str) -> None:
     for grib2_file_path in sorted(Path(grib2_files_directory).iterdir()):
         # create directory for current hour
-        os.mkdir(ICON_D2_DIR_PATH / get_wgf4_output_dir(str(grib2_file_path)))
+        # TODO (dmitry): if a directory exists, we might already have the data there, so ideally we shouldn't prcess
+        # current GRIB2 file in this case
+        # but here we'll just ignore that directory exists, the new WGF4 file would be created and stored in this dir
+        (ICON_D2_DIR_PATH / get_wgf4_output_dir(str(grib2_file_path))).mkdir(exist_ok=True)
         # prepare PRATE.wgf4 header
 
 
