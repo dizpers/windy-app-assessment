@@ -15,6 +15,9 @@ cp windy_app_assessment/.env.TEMPLATE windy_app_assessment/.env
 2. Install dependencies `poetry install`
 3. Activate environment `poetry shell`
 
+NOTE: If you're on Apple Silicon, then you should install x86_64 version of `eccodes`. Please make sure that you have
+separate `brew` installation for intel packages.
+
 ## Run
 
 ```bash
